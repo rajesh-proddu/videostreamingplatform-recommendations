@@ -7,7 +7,9 @@ data:
   LLM_PROVIDER: bedrock
   AWS_REGION: us-east-1
   BEDROCK_MODEL_ID: anthropic.claude-3-sonnet-20240229-v1:0
-  PGVECTOR_URL: postgresql://recouser:recopass@pgvector.infra.svc.cluster.local:5432/recommendations
+  PGVECTOR_HOST: pgvector.infra.svc.cluster.local
+  PGVECTOR_PORT: "5432"
+  PGVECTOR_DATABASE: recommendations
   ELASTICSEARCH_URL: http://elasticsearch.videostreamingplatform.svc.cluster.local:9200
   KAFKA_BROKERS: kafka.infra.svc.cluster.local:9092
   API_PORT: "8000"
