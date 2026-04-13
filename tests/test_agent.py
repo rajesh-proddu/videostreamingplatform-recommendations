@@ -1,12 +1,10 @@
 """Tests for the recommendation agent."""
 
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.agent.state import AgentState, VideoCandidate
 from src.agent.nodes.filter import filter_results
-from src.agent.nodes.retrieve import retrieve_candidates
+from src.agent.state import AgentState
 
 
 @pytest.mark.asyncio

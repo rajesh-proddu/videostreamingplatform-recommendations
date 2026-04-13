@@ -4,8 +4,8 @@ import logging
 
 from src.agent.state import AgentState, VideoCandidate
 from src.tools.search_videos import search_videos
-from src.tools.user_history import get_user_history
 from src.tools.trending import get_trending_videos
+from src.tools.user_history import get_user_history
 
 logger = logging.getLogger(__name__)
 

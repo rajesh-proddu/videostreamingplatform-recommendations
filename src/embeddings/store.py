@@ -64,7 +64,7 @@ class EmbeddingStore:
         """Find similar videos by embedding similarity."""
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
-                f"""
+                """
                 SELECT video_id, title, description,
                        1 - (embedding <=> $1::vector) as similarity
                 FROM video_embeddings

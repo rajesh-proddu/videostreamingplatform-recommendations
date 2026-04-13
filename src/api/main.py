@@ -1,6 +1,7 @@
 """FastAPI application for the recommendation service."""
 
 from fastapi import FastAPI
+
 from src.api.routes.recommend import router as recommend_router
 
 app = FastAPI(

@@ -3,12 +3,12 @@
 import logging
 from typing import Optional
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 
-from src.agent.state import AgentState
-from src.agent.nodes.retrieve import retrieve_candidates
-from src.agent.nodes.rank import rank_candidates
 from src.agent.nodes.filter import filter_results
+from src.agent.nodes.rank import rank_candidates
+from src.agent.nodes.retrieve import retrieve_candidates
+from src.agent.state import AgentState
 
 logger = logging.getLogger(__name__)
 

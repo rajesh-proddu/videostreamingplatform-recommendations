@@ -8,7 +8,9 @@ from src.llm.provider import get_llm_provider
 
 logger = logging.getLogger(__name__)
 
-RANKING_PROMPT = """You are a video recommendation engine. Given a user's watch history and candidate videos, score each candidate from 0.0 to 1.0 based on relevance.
+RANKING_PROMPT = """\
+You are a video recommendation engine. Given a user's watch history \
+and candidate videos, score each candidate from 0.0 to 1.0 based on relevance.
 
 User's recent watch history (video IDs): {watch_history}
 User's search query: {query}
@@ -16,7 +18,8 @@ User's search query: {query}
 Candidate videos:
 {candidates}
 
-Return a JSON array of objects with "video_id", "score" (0.0-1.0), and "reason" (brief explanation).
+Return a JSON array of objects with "video_id", "score" (0.0-1.0), \
+and "reason" (brief explanation).
 Only return the JSON array, no other text."""
 
 
