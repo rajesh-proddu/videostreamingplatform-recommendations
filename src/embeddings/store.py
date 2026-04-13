@@ -4,7 +4,6 @@ import logging
 from typing import Optional
 
 import asyncpg
-import numpy as np
 
 from src.config import config
 

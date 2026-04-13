@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from src.agent.graph import get_recommendations
-from src.config import config
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

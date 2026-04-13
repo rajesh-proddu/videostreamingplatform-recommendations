@@ -5,7 +5,6 @@ import logging
 
 from src.agent.state import AgentState
 from src.llm.provider import get_llm_provider
-from src.config import config
 
 logger = logging.getLogger(__name__)
 
