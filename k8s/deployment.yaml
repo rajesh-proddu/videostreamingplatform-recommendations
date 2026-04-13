@@ -16,7 +16,7 @@ spec:
       serviceAccountName: recommendations-sa
       containers:
         - name: api
-          image: videostreamingplatform-recommendations:latest
+          image: ghcr.io/rajesh-proddu/videostreamingplatform-recommendations/recommendations:latest
           ports:
             - containerPort: 8000
           envFrom:
