@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  recommendation-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.1
+      PGVECTOR_URL: postgresql://recouser:recopass@pgvector:5432/recommendations
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      API_PORT: 8000
+    depends_on:
+      - ollama
+    networks:
+      - reco
+      - videostreamingplatform-infra
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - reco
+
+networks:
+  reco:
+    driver: bridge
+  videostreamingplatform-infra:
+    external: true
+
+volumes:
+  ollama_data:
