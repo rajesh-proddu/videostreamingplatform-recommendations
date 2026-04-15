@@ -2,9 +2,7 @@
 
 import logging
 
-import asyncpg
-
-from src.config import config
+from src.db import get_pool
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +10,8 @@ logger = logging.getLogger(__name__)
 async def get_user_history(user_id: str, limit: int = 50) -> list[str]:
     """Get recently watched video IDs for a user from pgvector DB."""
     try:
-        conn = await asyncpg.connect(config.pgvector_url)
-        try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
             rows = await conn.fetch(
                 """
                 SELECT DISTINCT video_id
@@ -26,8 +24,6 @@ async def get_user_history(user_id: str, limit: int = 50) -> list[str]:
                 limit,
             )
             return [row["video_id"] for row in rows]
-        finally:
-            await conn.close()
     except Exception:
         logger.warning(f"Failed to get watch history for user {user_id}")
         return []

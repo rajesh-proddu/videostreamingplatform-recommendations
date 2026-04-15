@@ -2,9 +2,7 @@
 
 import logging
 
-import asyncpg
-
-from src.config import config
+from src.db import get_pool
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +10,8 @@ logger = logging.getLogger(__name__)
 async def get_trending_videos(hours: int = 24, limit: int = 20) -> list[dict]:
     """Get trending videos based on recent watch counts."""
     try:
-        conn = await asyncpg.connect(config.pgvector_url)
-        try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
             rows = await conn.fetch(
                 """
                 SELECT video_id, COUNT(*) as watch_count
@@ -30,8 +28,6 @@ async def get_trending_videos(hours: int = 24, limit: int = 20) -> list[dict]:
                 {"video_id": row["video_id"], "watch_count": row["watch_count"]}
                 for row in rows
             ]
-        finally:
-            await conn.close()
     except Exception:
         logger.warning("Failed to get trending videos")
         return []
