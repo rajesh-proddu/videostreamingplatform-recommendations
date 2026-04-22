@@ -51,7 +51,7 @@ async def test_get_pool_recreates_if_closed(mock_create):
     mock_pool2._closed = False
     mock_create.side_effect = [mock_pool1, mock_pool2]
 
-    pool1 = await db_module.get_pool()
+    await db_module.get_pool()
     mock_pool1._closed = True  # simulate pool closure
 
     pool2 = await db_module.get_pool()

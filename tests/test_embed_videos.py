@@ -1,6 +1,6 @@
 """Tests for the embed_all_videos batch job."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

@@ -1,6 +1,6 @@
 """Tests for the Ollama LLM provider."""
 
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -40,7 +40,7 @@ async def test_generate_with_system_prompt(provider):
     mock_response.raise_for_status = MagicMock()
     provider.client.post.return_value = mock_response
 
-    result = await provider.generate("question", system_prompt="You are helpful")
+    await provider.generate("question", system_prompt="You are helpful")
 
     call_args = provider.client.post.call_args
     body = call_args[1]["json"]
