@@ -3,24 +3,22 @@
 External dependencies (pgvector, ES, LLM) are mocked. These tests verify the
 node wiring — that state flows correctly and final results obey the
 documented filter rules.
-
-Note: invokes `recommendation_graph` directly rather than going through
-`get_recommendations`, because LangGraph's `ainvoke` returns a dict and the
-attribute-style access in graph.py:50 is broken — that's a pre-existing
-issue, out of scope for these tests.
 """
 
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.agent.graph import recommendation_graph
+from src.agent.graph import get_recommendations
 from src.agent.state import AgentState
 
 
 async def _run_graph(state: AgentState) -> list[dict]:
-    result = await recommendation_graph.ainvoke(state)
-    return result["ranked_results"][: state.limit]
+    return await get_recommendations(
+        user_id=state.user_id,
+        query=state.query,
+        limit=state.limit,
+    )
 
 
 @pytest.mark.asyncio

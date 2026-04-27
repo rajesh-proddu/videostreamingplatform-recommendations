@@ -45,6 +45,7 @@ async def get_recommendations(
         limit=limit,
     )
 
+    # LangGraph's ainvoke returns the final state as a dict, not the dataclass.
     result = await recommendation_graph.ainvoke(initial_state)
 
-    return result.ranked_results[:limit]
+    return result["ranked_results"][:limit]
