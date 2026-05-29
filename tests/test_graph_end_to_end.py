@@ -22,12 +22,16 @@ async def _run_graph(state: AgentState) -> list[dict]:
 
 
 @pytest.mark.asyncio
+@patch("src.agent.nodes.retrieve.get_similar_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.rank.get_llm_provider")
 @patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
-async def test_graph_filters_watched_when_no_query(mock_hist, mock_search, mock_trend, mock_llm):
+async def test_graph_filters_watched_when_no_query(
+    mock_hist, mock_search, mock_trend, mock_llm, mock_similar,
+):
     mock_hist.return_value = ["watched-1"]
+    mock_similar.return_value = []
     mock_trend.return_value = [
         {"video_id": "watched-1", "watch_count": 10},
         {"video_id": "fresh-1", "watch_count": 5},
@@ -47,15 +51,19 @@ async def test_graph_filters_watched_when_no_query(mock_hist, mock_search, mock_
 
 
 @pytest.mark.asyncio
+@patch("src.agent.nodes.retrieve.get_similar_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.rank.get_llm_provider")
 @patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
-async def test_graph_keeps_watched_when_query_present(mock_hist, mock_search, mock_trend, mock_llm):
+async def test_graph_keeps_watched_when_query_present(
+    mock_hist, mock_search, mock_trend, mock_llm, mock_similar,
+):
     mock_hist.return_value = ["watched-1"]
     mock_search.return_value = [
         {"id": "watched-1", "title": "Already Seen", "description": ""},
     ]
+    mock_similar.return_value = []
     mock_trend.return_value = []
 
     provider = AsyncMock()
@@ -72,11 +80,13 @@ async def test_graph_keeps_watched_when_query_present(mock_hist, mock_search, mo
 @patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
 async def test_graph_drops_low_scores(mock_hist, mock_search, mock_trend, mock_llm):
+    # Query path so the LLM ranker runs and can emit a sub-threshold score.
     mock_hist.return_value = []
-    mock_trend.return_value = [
-        {"video_id": "low-1", "watch_count": 1},
-        {"video_id": "high-1", "watch_count": 1},
+    mock_search.return_value = [
+        {"id": "low-1", "title": "L", "description": ""},
+        {"id": "high-1", "title": "H", "description": ""},
     ]
+    mock_trend.return_value = []
 
     provider = AsyncMock()
     provider.generate.return_value = (
@@ -85,7 +95,7 @@ async def test_graph_drops_low_scores(mock_hist, mock_search, mock_trend, mock_l
     )
     mock_llm.return_value = provider
 
-    results = await _run_graph(AgentState(user_id="u-low", limit=10))
+    results = await _run_graph(AgentState(user_id="u-low", query="anything", limit=10))
     ids = {r["video_id"] for r in results}
     assert "low-1" not in ids
     assert "high-1" in ids
@@ -118,16 +128,50 @@ async def test_graph_truncates_to_limit(mock_hist, mock_search, mock_trend, mock
 @patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
 async def test_graph_llm_failure_falls_back_to_default_score(mock_hist, mock_search, mock_trend, mock_llm):
+    # Query path forces the LLM ranker, which is where the failure fallback lives.
     mock_hist.return_value = []
-    mock_trend.return_value = [{"video_id": "fb-1", "watch_count": 1}]
+    mock_search.return_value = [{"id": "fb-1", "title": "F", "description": ""}]
+    mock_trend.return_value = []
 
     provider = AsyncMock()
     provider.generate.side_effect = RuntimeError("llm offline")
     mock_llm.return_value = provider
 
-    results = await _run_graph(AgentState(user_id="u-llm-fail", limit=5))
+    results = await _run_graph(AgentState(user_id="u-llm-fail", query="x", limit=5))
     # Fallback assigns 0.5; filter threshold is 0.1 — item should survive.
     assert any(r["video_id"] == "fb-1" for r in results)
+
+
+@pytest.mark.asyncio
+@patch("src.agent.nodes.popular_fallback.get_trending_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
+async def test_graph_empty_retrieve_routes_to_popular_fallback(
+    mock_hist, mock_search, mock_trend, mock_fallback_trend,
+):
+    mock_hist.return_value = []
+    mock_trend.return_value = []
+    mock_fallback_trend.return_value = [{"video_id": "pop-1", "watch_count": 99}]
+
+    results = await _run_graph(AgentState(user_id="u-empty", limit=5))
+    assert [r["video_id"] for r in results] == ["pop-1"]
+
+
+@pytest.mark.asyncio
+@patch("src.agent.nodes.popular_fallback.get_trending_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
+async def test_graph_empty_everywhere_returns_empty(
+    mock_hist, mock_search, mock_trend, mock_fallback_trend,
+):
+    mock_hist.return_value = []
+    mock_trend.return_value = []
+    mock_fallback_trend.return_value = []
+
+    results = await _run_graph(AgentState(user_id="u-void", limit=5))
+    assert results == []
 
 
 @pytest.mark.asyncio
@@ -135,13 +179,13 @@ async def test_graph_llm_failure_falls_back_to_default_score(mock_hist, mock_sea
 @patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
-async def test_graph_empty_retrieve_returns_empty(mock_hist, mock_search, mock_trend, mock_llm):
+async def test_graph_no_query_skips_llm_ranker(mock_hist, mock_search, mock_trend, mock_llm):
     mock_hist.return_value = []
-    mock_trend.return_value = []
+    mock_trend.return_value = [{"video_id": "t-1", "watch_count": 5}]
 
     provider = AsyncMock()
-    provider.generate.return_value = "[]"
     mock_llm.return_value = provider
 
-    results = await _run_graph(AgentState(user_id="u-empty", limit=5))
-    assert results == []
+    results = await _run_graph(AgentState(user_id="u-feed", limit=5))
+    assert any(r["video_id"] == "t-1" for r in results)
+    provider.generate.assert_not_called()

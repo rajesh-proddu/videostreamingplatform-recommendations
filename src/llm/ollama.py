@@ -26,6 +26,8 @@ class OllamaProvider(LLMProvider):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
+        logger.info("LLM generate input (ollama model=%s): %s", self.model, messages)
+
         response = await self.client.post(
             f"{self.base_url}/api/chat",
             json={
@@ -35,10 +37,13 @@ class OllamaProvider(LLMProvider):
             },
         )
         response.raise_for_status()
-        return response.json()["message"]["content"]
+        output = response.json()["message"]["content"]
+        logger.info("LLM generate output (ollama model=%s): %s", self.model, output)
+        return output
 
     async def embed(self, text: str) -> list[float]:
         """Generate embeddings using Ollama."""
+        logger.info("LLM embed input (ollama model=%s): %s", self.model, text)
         response = await self.client.post(
             f"{self.base_url}/api/embeddings",
             json={
@@ -47,4 +52,6 @@ class OllamaProvider(LLMProvider):
             },
         )
         response.raise_for_status()
-        return response.json()["embedding"]
+        embedding = response.json()["embedding"]
+        logger.info("LLM embed output (ollama model=%s): dim=%d", self.model, len(embedding))
+        return embedding

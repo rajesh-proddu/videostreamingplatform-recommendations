@@ -17,6 +17,7 @@ services:
     networks:
       - reco
       - videostreamingplatform-infra
+      - build_videostreamingplatform
 
   ollama:
     image: ollama/ollama:latest
@@ -31,6 +32,8 @@ networks:
   reco:
     driver: bridge
   videostreamingplatform-infra:
+    external: true
+  build_videostreamingplatform:
     external: true
 
 volumes:

@@ -4,6 +4,7 @@ import logging
 
 from src.agent.state import AgentState, VideoCandidate
 from src.tools.search_videos import search_videos
+from src.tools.similar import get_similar_videos
 from src.tools.trending import get_trending_videos
 from src.tools.user_history import get_user_history
 
@@ -36,6 +37,22 @@ async def retrieve_candidates(state: AgentState) -> AgentState:
             ])
         except Exception:
             logger.warning("Failed to search videos")
+
+    # Vector similarity to watch history (personalization)
+    if state.watch_history:
+        try:
+            similar = await get_similar_videos(state.watch_history)
+            candidates.extend([
+                VideoCandidate(
+                    video_id=v["video_id"],
+                    title=v.get("title", ""),
+                    description=v.get("description", ""),
+                    source="similar",
+                )
+                for v in similar
+            ])
+        except Exception:
+            logger.warning("Failed to get similar videos")
 
     # Get trending videos
     try:

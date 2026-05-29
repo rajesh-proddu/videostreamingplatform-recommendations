@@ -8,6 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Dev server (hot-reload)
 make dev          # uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 
+# Production server (gunicorn + uvicorn workers, config in gunicorn.conf.py)
+make run          # gunicorn -c gunicorn.conf.py src.api.main:app
+
 # Tests
 pytest -v                               # all tests
 pytest -v tests/test_agent.py           # single file

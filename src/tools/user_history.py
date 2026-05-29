@@ -14,10 +14,11 @@ async def get_user_history(user_id: str, limit: int = 50) -> list[str]:
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT DISTINCT video_id
+                SELECT video_id
                 FROM watch_history
                 WHERE user_id = $1
-                ORDER BY watched_at DESC
+                GROUP BY video_id
+                ORDER BY MAX(watched_at) DESC
                 LIMIT $2
                 """,
                 user_id,

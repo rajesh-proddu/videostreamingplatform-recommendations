@@ -23,6 +23,18 @@ and "reason" (brief explanation).
 Only return the JSON array, no other text."""
 
 
+def _strip_code_fence(text: str) -> str:
+    s = text.strip()
+    if not s.startswith("```"):
+        return s
+    s = s[3:]
+    if s.lstrip().lower().startswith("json"):
+        s = s.lstrip()[4:]
+    if s.endswith("```"):
+        s = s[:-3]
+    return s.strip()
+
+
 async def rank_candidates(state: AgentState) -> AgentState:
     """Use LLM to rank candidate videos based on user context."""
     if not state.candidates:
@@ -44,7 +56,10 @@ async def rank_candidates(state: AgentState) -> AgentState:
         llm = get_llm_provider()
         response = await llm.generate(prompt)
 
-        rankings = json.loads(response)
+        rankings = json.loads(_strip_code_fence(response))
+        titles = {c.video_id: c.title for c in state.candidates}
+        for r in rankings:
+            r.setdefault("title", titles.get(r.get("video_id", ""), ""))
         state.ranked_results = sorted(rankings, key=lambda x: x.get("score", 0), reverse=True)
     except json.JSONDecodeError:
         logger.error("LLM returned invalid JSON, falling back to source-based ranking")

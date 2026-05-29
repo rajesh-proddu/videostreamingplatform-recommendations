@@ -25,7 +25,7 @@ class BedrockProvider(LLMProvider):
         """Generate text using AWS Bedrock."""
         import asyncio
 
-        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+        messages = [{"role": "user", "content": [{"text": prompt}]}]
         kwargs = {
             "modelId": self.model_id,
             "messages": messages,
@@ -34,6 +34,13 @@ class BedrockProvider(LLMProvider):
         if system_prompt:
             kwargs["system"] = [{"text": system_prompt}]
 
+        logger.info(
+            "LLM generate input (bedrock model=%s): system=%s messages=%s",
+            self.model_id,
+            system_prompt,
+            messages,
+        )
+
         # Run synchronous boto3 call in executor
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
@@ -41,20 +48,27 @@ class BedrockProvider(LLMProvider):
             lambda: self.bedrock.converse(**kwargs),
         )
 
-        return response["output"]["message"]["content"][0]["text"]
+        output = response["output"]["message"]["content"][0]["text"]
+        logger.info("LLM generate output (bedrock model=%s): %s", self.model_id, output)
+        return output
 
     async def embed(self, text: str) -> list[float]:
         """Generate embeddings using AWS Bedrock Titan."""
         import asyncio
 
+        embed_model_id = "amazon.titan-embed-text-v2:0"
+        logger.info("LLM embed input (bedrock model=%s): %s", embed_model_id, text)
+
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
             lambda: self.bedrock.invoke_model(
-                modelId="amazon.titan-embed-text-v2:0",
+                modelId=embed_model_id,
                 body=json.dumps({"inputText": text}),
             ),
         )
 
         result = json.loads(response["body"].read())
-        return result["embedding"]
+        embedding = result["embedding"]
+        logger.info("LLM embed output (bedrock model=%s): dim=%d", embed_model_id, len(embedding))
+        return embedding

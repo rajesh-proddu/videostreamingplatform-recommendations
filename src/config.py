@@ -14,6 +14,8 @@ class Config:
     bedrock_model_id: str = field(
         default_factory=lambda: os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0"),
     )
+    anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
+    anthropic_model: str = field(default_factory=lambda: os.getenv("ANTHROPIC_MODEL", "claude-opus-4-7"))
 
     # pgvector
     pgvector_url: str = field(default_factory=lambda: os.getenv("PGVECTOR_URL", "postgresql://recouser:recopass@localhost:5432/recommendations"))

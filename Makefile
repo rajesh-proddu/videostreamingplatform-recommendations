@@ -1,10 +1,13 @@
-.PHONY: dev lint test build help
+.PHONY: dev run lint test build help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-dev: ## Run development server
+dev: ## Run development server (uvicorn, hot-reload)
 	uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+
+run: ## Run production server (gunicorn + uvicorn workers)
+	gunicorn -c gunicorn.conf.py src.api.main:app
 
 lint: ## Run ruff linter
 	ruff check .

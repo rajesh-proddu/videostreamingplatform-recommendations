@@ -33,6 +33,9 @@ def get_llm_provider() -> LLMProvider:
         elif config.llm_provider == "bedrock":
             from src.llm.bedrock import BedrockProvider
             _provider_instance = BedrockProvider()
+        elif config.llm_provider == "anthropic":
+            from src.llm.anthropic import AnthropicProvider
+            _provider_instance = AnthropicProvider()
         else:
             raise ValueError(f"Unknown LLM provider: {config.llm_provider}")
     return _provider_instance

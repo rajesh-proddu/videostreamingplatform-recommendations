@@ -6,6 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ src/
+COPY gunicorn.conf.py .
 
 # Default config — credentials MUST be provided at runtime via env vars
 ENV LLM_PROVIDER=ollama
@@ -17,4 +18,4 @@ EXPOSE 8000
 
 USER nobody
 
-CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "src.api.main:app"]
