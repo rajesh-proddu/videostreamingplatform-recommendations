@@ -20,7 +20,7 @@ async def test_initialize_creates_tables(mock_create_pool):
     await store.initialize()
 
     assert store.pool is mock_pool
-    # Should execute: CREATE EXTENSION, CREATE TABLE video_embeddings, CREATE TABLE watch_history, CREATE INDEX
+    # CREATE EXTENSION + 3 CREATE TABLE (video_embeddings, user_features, trending_videos)
     assert mock_conn.execute.call_count == 4
 
 

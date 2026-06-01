@@ -5,8 +5,10 @@ import logging
 
 from src.agent.state import AgentState
 from src.llm.provider import get_llm_provider
+from src.observability import get_tracer
 
 logger = logging.getLogger(__name__)
+_tracer = get_tracer(__name__)
 
 RANKING_PROMPT = """\
 You are a video recommendation engine. Given a user's watch history \
@@ -37,6 +39,12 @@ def _strip_code_fence(text: str) -> str:
 
 async def rank_candidates(state: AgentState) -> AgentState:
     """Use LLM to rank candidate videos based on user context."""
+    with _tracer.start_as_current_span("agent.rank") as span:
+        span.set_attribute("candidates", len(state.candidates))
+        return await _rank_inner(state)
+
+
+async def _rank_inner(state: AgentState) -> AgentState:
     if not state.candidates:
         logger.info("No candidates to rank")
         return state

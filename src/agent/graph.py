@@ -11,8 +11,10 @@ from src.agent.nodes.rank import rank_candidates
 from src.agent.nodes.rank_deterministic import rank_deterministic
 from src.agent.nodes.retrieve import retrieve_candidates
 from src.agent.state import AgentState
+from src.observability import get_tracer
 
 logger = logging.getLogger(__name__)
+_tracer = get_tracer(__name__)
 
 
 def _route_after_retrieve(state: AgentState) -> str:
@@ -68,7 +70,12 @@ async def get_recommendations(
         limit=limit,
     )
 
-    # LangGraph's ainvoke returns the final state as a dict, not the dataclass.
-    result = await recommendation_graph.ainvoke(initial_state)
-
-    return result["ranked_results"][:limit]
+    with _tracer.start_as_current_span("agent.invoke") as span:
+        span.set_attribute("user_id", user_id)
+        span.set_attribute("has_query", query is not None)
+        span.set_attribute("limit", limit)
+        # LangGraph's ainvoke returns the final state as a dict, not the dataclass.
+        result = await recommendation_graph.ainvoke(initial_state)
+        results = result["ranked_results"][:limit]
+        span.set_attribute("result_count", len(results))
+        return results

@@ -9,17 +9,23 @@ from src.agent.state import AgentState
 
 
 @pytest.mark.asyncio
+@patch("src.agent.nodes.retrieve.semantic_search", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_similar_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
-async def test_retrieve_with_query(mock_history, mock_search, mock_trending, mock_similar):
+async def test_retrieve_with_query(
+    mock_history, mock_search, mock_trending, mock_similar, mock_semantic,
+):
     mock_history.return_value = ["vid-old"]
     mock_search.return_value = [
         {"id": "vid-1", "title": "Python Tutorial", "description": "Basics"},
         {"id": "vid-2", "title": "Go Tutorial", "description": "Intro"},
     ]
     mock_similar.return_value = []
+    mock_semantic.return_value = [
+        {"video_id": "vid-sem", "title": "Semantic Hit", "description": "S"},
+    ]
     mock_trending.return_value = [
         {"video_id": "vid-3", "watch_count": 42},
     ]
@@ -28,12 +34,16 @@ async def test_retrieve_with_query(mock_history, mock_search, mock_trending, moc
     result = await retrieve_candidates(state)
 
     assert result.watch_history == ["vid-old"]
-    assert len(result.candidates) == 3
-    assert result.candidates[0].video_id == "vid-1"
-    assert result.candidates[0].source == "search"
-    assert result.candidates[2].source == "trending"
+    # 2 search + 1 semantic + 1 trending = 4
+    assert len(result.candidates) == 4
+    sources = {c.video_id: c.source for c in result.candidates}
+    assert sources["vid-1"] == "search"
+    assert sources["vid-sem"] == "semantic"
+    assert sources["vid-3"] == "trending"
     mock_search.assert_called_once_with("tutorial")
-    mock_similar.assert_called_once_with(["vid-old"])
+    mock_semantic.assert_called_once_with("tutorial")
+    # similar is now keyed off user_id (reads precomputed user_features), not history.
+    mock_similar.assert_called_once_with("user-1")
 
 
 @pytest.mark.asyncio
@@ -65,16 +75,20 @@ async def test_retrieve_merges_similar_with_personalization(
 @patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
-async def test_retrieve_skips_similar_for_cold_start(
+async def test_retrieve_cold_start_user_gets_no_candidates(
     mock_history, mock_search, mock_trending, mock_similar,
 ):
+    """Cold-start: similar IS called (gated inside the tool by user_features row
+    existence), trending may also be empty. Result: no candidates."""
     mock_history.return_value = []
+    mock_similar.return_value = []
     mock_trending.return_value = []
 
     state = AgentState(user_id="cold-user")
-    await retrieve_candidates(state)
+    result = await retrieve_candidates(state)
 
-    mock_similar.assert_not_called()
+    mock_similar.assert_called_once_with("cold-user")
+    assert result.candidates == []
 
 
 @pytest.mark.asyncio

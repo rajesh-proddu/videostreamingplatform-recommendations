@@ -1,5 +1,6 @@
 """LLM provider abstraction."""
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -18,6 +19,20 @@ class LLMProvider(ABC):
     async def embed(self, text: str) -> list[float]:
         """Generate an embedding vector for the given text."""
         ...
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Embed many texts concurrently. Fan-out is capped by
+        config.max_concurrent_embeds so we don't swamp Ollama or hit Bedrock
+        throughput limits. Providers with a native batch API can override."""
+        if not texts:
+            return []
+        sem = asyncio.Semaphore(config.max_concurrent_embeds)
+
+        async def _one(text: str) -> list[float]:
+            async with sem:
+                return await self.embed(text)
+
+        return await asyncio.gather(*(_one(t) for t in texts))
 
 
 _provider_instance: Optional[LLMProvider] = None

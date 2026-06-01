@@ -3,8 +3,10 @@
 import logging
 
 from src.agent.state import AgentState
+from src.observability import get_tracer
 
 logger = logging.getLogger(__name__)
+_tracer = get_tracer(__name__)
 
 SOURCE_SCORES = {
     "search": 0.7,
@@ -16,6 +18,12 @@ SOURCE_SCORES = {
 
 async def rank_deterministic(state: AgentState) -> AgentState:
     """Score candidates by source weight. Used when there's no user query."""
+    with _tracer.start_as_current_span("agent.rank_deterministic") as span:
+        span.set_attribute("candidates", len(state.candidates))
+        return await _rank_deterministic_inner(state)
+
+
+async def _rank_deterministic_inner(state: AgentState) -> AgentState:
     state.ranked_results = sorted(
         (
             {

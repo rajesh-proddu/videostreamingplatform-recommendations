@@ -3,6 +3,7 @@ version: "3.9"
 services:
   recommendation-api:
     build: .
+    container_name: recommendation-api
     ports:
       - "8000:8000"
     environment:
@@ -12,6 +13,34 @@ services:
       PGVECTOR_URL: postgresql://recouser:recopass@pgvector:5432/recommendations
       ELASTICSEARCH_URL: http://elasticsearch:9200
       API_PORT: 8000
+      # Same OTLP target as the Go services in ../videostreamingplatform/build/docker-compose.yml.
+      # The Jaeger container is on build_videostreamingplatform (compose project=build).
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: recommendation-api
+    depends_on:
+      - ollama
+    networks:
+      - reco
+      - videostreamingplatform-infra
+      - build_videostreamingplatform
+
+  embeddings-consumer:
+    build: .
+    container_name: embeddings-consumer
+    command: ["python", "-m", "src.consumers.embeddings_consumer"]
+    ports:
+      - "9100:9100"
+    environment:
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.1
+      PGVECTOR_URL: postgresql://recouser:recopass@pgvector:5432/recommendations
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_VIDEO_TOPIC: video-events
+      KAFKA_GROUP_ID: embeddings-consumer
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_SERVICE_NAME: embeddings-consumer
+      METRICS_PORT: "9100"
     depends_on:
       - ollama
     networks:

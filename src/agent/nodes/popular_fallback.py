@@ -3,15 +3,22 @@
 import logging
 
 from src.agent.state import AgentState
+from src.observability import get_tracer
 from src.tools.trending import get_trending_videos
 
 logger = logging.getLogger(__name__)
+_tracer = get_tracer(__name__)
 
 FALLBACK_WINDOW_HOURS = 24 * 7
 
 
 async def popular_fallback(state: AgentState) -> AgentState:
     """Return popular videos over a wider window when retrieve found nothing."""
+    with _tracer.start_as_current_span("agent.popular_fallback"):
+        return await _popular_fallback_inner(state)
+
+
+async def _popular_fallback_inner(state: AgentState) -> AgentState:
     try:
         trending = await get_trending_videos(hours=FALLBACK_WINDOW_HOURS, limit=state.limit)
     except Exception:

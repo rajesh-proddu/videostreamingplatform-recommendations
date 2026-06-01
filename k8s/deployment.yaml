@@ -12,6 +12,10 @@ spec:
     metadata:
       labels:
         app: recommendation-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: recommendations-sa
       containers:
@@ -19,6 +23,7 @@ spec:
           image: ghcr.io/rajesh-proddu/videostreamingplatform-recommendations/recommendations:latest
           ports:
             - containerPort: 8000
+              name: http
           envFrom:
             - configMapRef:
                 name: recommendation-config

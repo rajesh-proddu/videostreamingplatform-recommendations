@@ -21,6 +21,32 @@ class Config:
     pgvector_url: str = field(default_factory=lambda: os.getenv("PGVECTOR_URL", "postgresql://recouser:recopass@localhost:5432/recommendations"))
     embedding_dimension: int = field(default_factory=lambda: int(os.getenv("EMBEDDING_DIMENSION", "1536")))
 
+    # Embedding fan-out cap for batch jobs / consumers. Ollama is single-process
+    # CPU-bound; Bedrock has per-region throughput limits. 8 is a safe default
+    # across both providers; bump for hosted high-throughput endpoints.
+    max_concurrent_embeds: int = field(default_factory=lambda: int(os.getenv("MAX_CONCURRENT_EMBEDS", "8")))
+
+    # Embeddings consumer
+    kafka_video_topic: str = field(
+        default_factory=lambda: os.getenv("KAFKA_VIDEO_TOPIC", "video-events")
+    )
+    kafka_embeddings_group_id: str = field(
+        default_factory=lambda: os.getenv("KAFKA_GROUP_ID", "embeddings-consumer")
+    )
+    kafka_embeddings_dlq_topic: str = field(
+        default_factory=lambda: os.getenv(
+            "KAFKA_DLQ_TOPIC", "video-events-embeddings-dlq"
+        )
+    )
+    embeddings_batch_size: int = field(
+        default_factory=lambda: int(os.getenv("EMBEDDINGS_BATCH_SIZE", "32"))
+    )
+    embeddings_idle_flush_seconds: float = field(
+        default_factory=lambda: float(
+            os.getenv("EMBEDDINGS_IDLE_FLUSH_SECONDS", "5.0")
+        )
+    )
+
     # Elasticsearch
     elasticsearch_url: str = field(default_factory=lambda: os.getenv("ELASTICSEARCH_URL", "http://localhost:9200"))
     es_video_index: str = field(default_factory=lambda: os.getenv("ES_VIDEO_INDEX", "videos"))

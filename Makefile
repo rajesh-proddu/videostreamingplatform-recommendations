@@ -26,3 +26,6 @@ down: ## Stop local dev stack
 
 embed: ## Run embedding batch job
 	python -m src.embeddings.embed_videos
+
+consume-embeddings: ## Run the Kafka → pgvector embeddings consumer
+	python -m src.consumers.embeddings_consumer

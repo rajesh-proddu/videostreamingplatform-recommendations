@@ -10,7 +10,7 @@ class VideoCandidate:
     title: str
     description: str = ""
     score: float = 0.0
-    source: str = ""  # "search", "history", "trending"
+    source: str = ""  # "search", "semantic", "similar", "trending"
 
 
 @dataclass

@@ -1,51 +1,42 @@
-"""Tool for finding videos similar to a user's watch history via pgvector."""
+"""Tool for finding videos similar to a user's taste vector.
+
+Reads pgvector.user_features.user_vec (precomputed nightly) and runs an ANN
+query against video_embeddings via EmbeddingStore.find_similar (the shared
+primitive — see src/embeddings/store.py:find_similar_in_pool).
+
+Returns [] for cold-start users (no user_features row, or user_vec is NULL
+because none of their watched videos have embeddings yet).
+"""
 
 import logging
 
 from src.db import get_pool
+from src.embeddings.store import find_similar_in_pool
 
 logger = logging.getLogger(__name__)
 
-USER_VECTOR_HISTORY_LIMIT = 20
 
-# Builds a user vector by averaging embeddings of the most recently watched
-# videos, then returns nearest neighbors excluding anything already watched.
-# AVG over an empty set returns NULL, which the WHERE clause filters out.
-_SIMILAR_VIDEOS_SQL = """
-WITH user_vec AS (
-    SELECT AVG(embedding) AS v
-    FROM video_embeddings
-    WHERE video_id = ANY($1::text[])
-)
-SELECT video_id, title, description
-FROM video_embeddings, user_vec
-WHERE user_vec.v IS NOT NULL
-  AND video_id != ALL($1::text[])
-ORDER BY embedding <=> user_vec.v
-LIMIT $2
-"""
+def _parse_pgvector(text: str) -> list[float]:
+    """Parse pgvector's text format ('[0.1,0.2,...]') into a list of floats."""
+    return [float(x) for x in text.strip("[]").split(",") if x.strip()]
 
 
-async def get_similar_videos(watch_history: list[str], limit: int = 20) -> list[dict]:
-    """Return videos similar to the user's recent watch history."""
-    if not watch_history:
+async def get_similar_videos(user_id: str, limit: int = 20) -> list[dict]:
+    """Return videos similar to the user's precomputed taste vector."""
+    if not user_id:
         return []
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                _SIMILAR_VIDEOS_SQL,
-                watch_history[:USER_VECTOR_HISTORY_LIMIT],
-                limit,
+            row = await conn.fetchrow(
+                "SELECT user_vec::text AS vec_text FROM user_features "
+                "WHERE user_id = $1 AND user_vec IS NOT NULL",
+                user_id,
             )
-            return [
-                {
-                    "video_id": row["video_id"],
-                    "title": row["title"] or "",
-                    "description": row["description"] or "",
-                }
-                for row in rows
-            ]
+        if row is None or not row["vec_text"]:
+            return []
+        user_vec = _parse_pgvector(row["vec_text"])
+        return await find_similar_in_pool(pool, user_vec, limit=limit)
     except Exception:
-        logger.warning("Failed to get similar videos")
+        logger.warning(f"Failed to get similar videos for {user_id}")
         return []
