@@ -12,14 +12,17 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from src.api.routes.recommend import router as recommend_router
 from src.db import close_pool, get_pool
 from src.observability import init_observability
+from src.tools.search_videos import close_es_client, get_es_client
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage connection pool lifecycle."""
     await get_pool()
+    get_es_client()
     yield
     await close_pool()
+    await close_es_client()
 
 
 app = FastAPI(

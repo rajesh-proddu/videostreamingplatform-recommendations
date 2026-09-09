@@ -4,12 +4,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+import src.tools.search_videos as search_videos_mod
 from src.tools.search_videos import search_videos
 
 
 @pytest.mark.asyncio
 @patch("src.tools.search_videos.AsyncElasticsearch")
 async def test_search_videos(mock_es_class):
+    search_videos_mod._client = None  # reset the shared ES client singleton
     mock_es = AsyncMock()
     mock_es_class.return_value = mock_es
     mock_es.search.return_value = {

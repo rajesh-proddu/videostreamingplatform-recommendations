@@ -60,5 +60,9 @@ class Config:
     api_port: int = field(default_factory=lambda: int(os.getenv("API_PORT", "8000")))
     max_recommendations: int = field(default_factory=lambda: int(os.getenv("MAX_RECOMMENDATIONS", "10")))
 
+    # Cap on deduped candidates handed to rank_candidates. Keeps the LLM ranking
+    # prompt bounded regardless of how many sources contribute results.
+    max_rank_candidates: int = field(default_factory=lambda: int(os.getenv("MAX_RANK_CANDIDATES", "40")))
+
 
 config = Config()
