@@ -26,7 +26,7 @@ class OllamaProvider(LLMProvider):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        logger.info("LLM generate input (ollama model=%s): %s", self.model, messages)
+        logger.debug("LLM generate input (ollama model=%s): %s", self.model, messages)
 
         response = await self.client.post(
             f"{self.base_url}/api/chat",
@@ -34,11 +34,13 @@ class OllamaProvider(LLMProvider):
                 "model": self.model,
                 "messages": messages,
                 "stream": False,
+                # Ollama's server default is non-zero; pin it so ranking is reproducible.
+                "options": {"temperature": 0},
             },
         )
         response.raise_for_status()
         output = response.json()["message"]["content"]
-        logger.info("LLM generate output (ollama model=%s): %s", self.model, output)
+        logger.debug("LLM generate output (ollama model=%s): %s", self.model, output)
         return output
 
     async def embed(self, text: str) -> list[float]:

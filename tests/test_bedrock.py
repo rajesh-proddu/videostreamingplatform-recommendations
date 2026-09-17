@@ -35,6 +35,7 @@ async def test_generate_basic(provider):
     assert result == "Generated text"
     call_kwargs = provider.bedrock.converse.call_args[1]
     assert call_kwargs["modelId"] == "anthropic.claude-3-sonnet"
+    assert call_kwargs["inferenceConfig"]["temperature"] == 0
     assert "system" not in call_kwargs
 
 

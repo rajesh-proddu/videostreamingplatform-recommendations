@@ -31,6 +31,7 @@ async def test_generate_without_system_prompt(provider):
     body = call_args[1]["json"]
     assert len(body["messages"]) == 1
     assert body["messages"][0]["role"] == "user"
+    assert body["options"]["temperature"] == 0
 
 
 @pytest.mark.asyncio

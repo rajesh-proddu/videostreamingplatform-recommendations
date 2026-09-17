@@ -29,12 +29,13 @@ class BedrockProvider(LLMProvider):
         kwargs = {
             "modelId": self.model_id,
             "messages": messages,
-            "inferenceConfig": {"maxTokens": 4096, "temperature": 0.7},
+            # temperature 0: ranking must be reproducible for evals to mean anything.
+            "inferenceConfig": {"maxTokens": 4096, "temperature": 0},
         }
         if system_prompt:
             kwargs["system"] = [{"text": system_prompt}]
 
-        logger.info(
+        logger.debug(
             "LLM generate input (bedrock model=%s): system=%s messages=%s",
             self.model_id,
             system_prompt,
@@ -49,7 +50,7 @@ class BedrockProvider(LLMProvider):
         )
 
         output = response["output"]["message"]["content"][0]["text"]
-        logger.info("LLM generate output (bedrock model=%s): %s", self.model_id, output)
+        logger.debug("LLM generate output (bedrock model=%s): %s", self.model_id, output)
         return output
 
     async def embed(self, text: str) -> list[float]:
