@@ -5,10 +5,13 @@ node wiring — that state flows correctly and final results obey the
 documented filter rules.
 """
 
-from unittest.mock import AsyncMock, patch
+import json
+import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import src.agent.impressions as impressions
 from src.agent.graph import get_recommendations
 from src.agent.state import AgentState
 
@@ -189,3 +192,87 @@ async def test_graph_no_query_skips_llm_ranker(mock_hist, mock_search, mock_tren
     results = await _run_graph(AgentState(user_id="u-feed", limit=5))
     assert any(r["video_id"] == "t-1" for r in results)
     provider.generate.assert_not_called()
+
+
+# --- Impression log through the real graph ---------------------------------
+# The ranking nodes set route/prompt_version/rank_fallback by mutating state;
+# these confirm those fields survive into the dict ainvoke returns and land in
+# the INSERT, rather than trusting hand-built state dicts.
+
+def _captured_insert(conn) -> dict:
+    _sql, *args = conn.execute.call_args[0]
+    keys = ["request_id", "user_id", "query", "route", "prompt_version", "model_id",
+            "rank_fallback", "latency_ms", "items"]
+    row = dict(zip(keys, args))
+    row["items"] = json.loads(row["items"])
+    return row
+
+
+async def _run_with_impression(query, llm_response, trending, fallback_trending=()):
+    conn = AsyncMock()
+    ctx = AsyncMock()
+    ctx.__aenter__.return_value = conn
+    pool = MagicMock()
+    pool.acquire = MagicMock(return_value=ctx)
+    provider = AsyncMock()
+    provider.generate.return_value = llm_response
+    request_id = str(uuid.uuid4())
+
+    with patch("src.agent.nodes.retrieve.get_user_history", AsyncMock(return_value=[])), \
+         patch("src.agent.nodes.retrieve.get_video_titles", AsyncMock(return_value={})), \
+         patch("src.agent.nodes.retrieve.search_videos",
+               AsyncMock(return_value=[{"id": "s-1", "title": "S"}])), \
+         patch("src.agent.nodes.retrieve.semantic_search", AsyncMock(return_value=[])), \
+         patch("src.agent.nodes.retrieve.get_similar_videos", AsyncMock(return_value=[])), \
+         patch("src.agent.nodes.retrieve.get_trending_videos", AsyncMock(return_value=list(trending))), \
+         patch("src.agent.nodes.popular_fallback.get_trending_videos",
+               AsyncMock(return_value=list(fallback_trending))), \
+         patch("src.agent.nodes.rank.get_llm_provider", return_value=provider), \
+         patch("src.agent.impressions.get_pool", AsyncMock(return_value=pool)):
+        results = await get_recommendations(user_id="u-imp", query=query, limit=5, request_id=request_id)
+        await impressions.drain()
+
+    row = _captured_insert(conn)
+    assert row["request_id"] == request_id
+    assert row["user_id"] == "u-imp"
+    return results, row
+
+
+@pytest.mark.asyncio
+async def test_impression_llm_route():
+    _, row = await _run_with_impression(
+        "rust", '[{"video_id":"s-1","score":0.9,"reason":"r"}]', trending=[],
+    )
+    assert row["route"] == "rank"
+    assert row["prompt_version"] == "2"
+    assert row["rank_fallback"] is None
+    assert row["query"] == "rust"
+    assert row["items"] == [{"video_id": "s-1", "rank": 1, "score": 0.9, "source": "search"}]
+
+
+@pytest.mark.asyncio
+async def test_impression_records_rank_fallback():
+    _, row = await _run_with_impression("rust", "not json", trending=[])
+    assert row["route"] == "rank"
+    assert row["rank_fallback"] == "invalid_json"
+
+
+@pytest.mark.asyncio
+async def test_impression_deterministic_route():
+    _, row = await _run_with_impression(
+        None, "unused", trending=[{"video_id": "t-1", "title": "T"}],
+    )
+    assert row["route"] == "rank_deterministic"
+    assert row["prompt_version"] is None
+    assert row["model_id"] is None
+    assert row["items"][0]["source"] == "trending"
+
+
+@pytest.mark.asyncio
+async def test_impression_popular_fallback_route():
+    results, row = await _run_with_impression(
+        None, "unused", trending=[], fallback_trending=[{"video_id": "p-1", "title": "P"}],
+    )
+    assert [r["video_id"] for r in results] == ["p-1"]
+    assert row["route"] == "popular_fallback"
+    assert row["items"] == [{"video_id": "p-1", "rank": 1, "score": 0.5, "source": "popular"}]
