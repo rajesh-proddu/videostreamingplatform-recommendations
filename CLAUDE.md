@@ -35,35 +35,40 @@ make down
 
 ```
 POST /api/v1/recommend
-  → src/api/routes/recommend.py
-  → src/agent/graph.py::get_recommendations()
-  → LangGraph: retrieve → rank → filter
-  → returns list[dict]
+  → src/api/routes/recommend.py        (mints request_id, returned in the response)
+  → src/agent/graph.py::get_recommendations(request_id=…)
+  → LangGraph: retrieve → {rank | rank_deterministic | popular_fallback} → filter
+  → returns list[dict]; impression row written in the background
 ```
 
-The compiled graph is a **module-level singleton** (`recommendation_graph = build_graph()`) instantiated at import time.
+The compiled graph is a **module-level singleton** (`recommendation_graph = build_graph()`) instantiated at import time. `ainvoke` returns the final state as a **dict**, not the `AgentState` dataclass — read fields by key.
 
-### LangGraph Agent (3 nodes, linear graph)
+### LangGraph Agent (5 nodes, conditional routing)
 
 **State** (`src/agent/state.py`): `AgentState` dataclass flows through all nodes. Key fields:
 - Input: `user_id`, `query` (optional), `limit`
-- Built up: `watch_history` (list of video IDs), `candidates` (list of `VideoCandidate`), `ranked_results` (list of dicts from LLM)
+- Built up: `watch_history` (video IDs), `watch_history_titles` (aligned titles, query path only), `candidates` (list of `VideoCandidate`), `ranked_results` (list of dicts)
+- Recorded for the impression log: `route`, `prompt_version`, `rank_fallback`
 
-**Node 1 — retrieve** (`src/agent/nodes/retrieve.py`):
-- Fetches `watch_history` from pgvector (`tools/user_history.py` — queries `watch_history` table)
-- If `query` present: ES multi-match search on `title^2, description` (`tools/search_videos.py`)
-- Always: trending videos from pgvector (`tools/trending.py` — counts `watch_history` rows in last 24h)
-- Deduplicates by `video_id`. Each failure is caught individually (partial results are fine).
-- **Note**: `EmbeddingStore.find_similar()` exists but is not yet wired into retrieve.
+**retrieve** (`src/agent/nodes/retrieve.py`) — all sources run concurrently under `asyncio.gather`, each wrapped so one failure degrades rather than fails:
+- Watch history from `user_features.recent_watches` (`tools/user_history.py`); on the query path, IDs are resolved to titles from `video_embeddings` (`tools/video_titles.py`, falls back to the ID)
+- If `query`: ES multi-match (`tools/search_videos.py`) **and** ANN semantic search (`tools/semantic_search.py`)
+- Always: taste-vector ANN (`tools/similar.py`, reads `user_features.user_vec`) and precomputed `trending_videos` (`tools/trending.py`)
+- Dedups by `video_id` in source priority search → semantic → similar → trending, then caps at `MAX_RANK_CANDIDATES`.
 
-**Node 2 — rank** (`src/agent/nodes/rank.py`):
-- Builds a prompt with watch history (last 20 IDs) + candidates, asks LLM to return JSON array of `{video_id, score, reason}`.
-- Falls back to source-based scoring on `JSONDecodeError` (search=0.8, trending=0.5) or any other LLM exception (all=0.5).
+**Routing** (`graph.py::_route_after_retrieve`): no candidates → `popular_fallback`; no query → `rank_deterministic`; otherwise → `rank`. Only `rank` calls the LLM.
 
-**Node 3 — filter** (`src/agent/nodes/filter.py`):
-- Removes already-watched videos **unless** `state.query` is set (explicit search bypasses watch filter).
-- Drops items with `score < 0.1`.
-- Truncates to `state.limit`.
+**rank** (`src/agent/nodes/rank.py`): prompt = watch-history titles (last 20) + query + candidates; LLM returns a JSON array of `{video_id, score, reason}`. Falls back to source-based scores on `JSONDecodeError` (search=0.8, else 0.5) or flat 0.5 on any other exception, and records `rank_fallback`. **Bump `PROMPT_VERSION` whenever `RANKING_PROMPT` changes.**
+
+**rank_deterministic** — source-weight scores, no LLM. **popular_fallback** — trending over a 7-day window.
+
+**filter** (`src/agent/nodes/filter.py`): removes already-watched videos unless `query` is set, drops `score < 0.1`, truncates to `limit`.
+
+### Impression log & metrics
+
+`src/agent/impressions.py` writes one `recommendation_impressions` row per served response (request_id, route, prompt_version, model_id, rank_fallback, latency, items with rank/score/source) as a tracked background task — never on the request path; failures are logged and counted. The API lifespan creates the table (`ensure_schema`) and drains pending writes on shutdown.
+
+`src/agent/metrics.py` defines the request-path counters (`recommendation_route_total`, `recommendation_rank_fallback_total`, `recommendation_source_candidates_total`, `recommendation_impression_write_failures_total`). Instruments are created lazily because `src.api.main` imports the graph before `init_observability()` runs.
 
 ### LLM Provider (`src/llm/`)
 
@@ -73,21 +78,25 @@ The compiled graph is a **module-level singleton** (`recommendation_graph = buil
 |----------|-------|----------|
 | `ollama` (default) | `OllamaProvider` | Local dev; calls `POST /api/chat` and `POST /api/embeddings` |
 | `bedrock` | `BedrockProvider` | Production; uses `bedrock.converse()` for text, `amazon.titan-embed-text-v2:0` for embeddings |
+| `anthropic` | `AnthropicProvider` | Direct Anthropic API; `generate()` only (no embeddings) |
+
+Ollama and Bedrock generate at `temperature 0` so ranking is reproducible. The Anthropic provider can't be pinned: `claude-opus-4-7`+ rejects sampling params.
 
 `BedrockProvider` wraps synchronous boto3 calls in `asyncio.get_event_loop().run_in_executor()`.
 
 **Test pattern**: Reset the singleton between tests: `import src.llm.provider as mod; mod._provider_instance = None`
 
-### pgvector Schema (`src/embeddings/store.py`)
+### pgvector Schema
 
-`EmbeddingStore.initialize()` creates two tables on startup:
+`EmbeddingStore.initialize()` (`src/embeddings/store.py`, run by the consumer/batch job) creates:
 
 ```sql
-video_embeddings (video_id PK, title, description, embedding vector(1536), updated_at)
-watch_history    (id SERIAL, user_id, video_id, event_type, watched_at)
+video_embeddings (video_id PK, title, description, embedding vector(N), updated_at)
+user_features    (user_id PK, user_vec vector(N), recent_watches TEXT[], updated_at)   -- analytics feature-jobs, daily
+trending_videos  (rank PK, video_id, title, description, watch_count, updated_at)       -- analytics feature-jobs, hourly
 ```
 
-The `watch_history` table is queried by both `tools/user_history.py` (per-user lookup) and `tools/trending.py` (aggregation). It is populated externally (from the analytics pipeline or the data service).
+The API lifespan creates `recommendation_impressions` (`src/agent/impressions.py`). The legacy `watch_history` table is no longer read or created.
 
 ### Embedding Batch Job (`src/embeddings/embed_videos.py`)
 
@@ -99,7 +108,7 @@ All config lives in `src/config.py` as a module-level `config = Config()` single
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LLM_PROVIDER` | `ollama` | `ollama` or `bedrock` |
+| `LLM_PROVIDER` | `ollama` | `ollama`, `bedrock`, or `anthropic` |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server |
 | `OLLAMA_MODEL` | `llama3.1` | Model name for both generation and embedding |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-3-sonnet-20240229-v1:0` | Bedrock model |
@@ -109,6 +118,8 @@ All config lives in `src/config.py` as a module-level `config = Config()` single
 | `ELASTICSEARCH_URL` | `http://localhost:9200` | ES for video search |
 | `ES_VIDEO_INDEX` | `videos` | ES index name |
 | `MAX_RECOMMENDATIONS` | `10` | Default limit |
+| `MAX_RANK_CANDIDATES` | `40` | Cap on deduped candidates passed to the ranker |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | — / `claude-opus-4-7` | Anthropic provider |
 
 ### Local Dev Stack
 
