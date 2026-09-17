@@ -20,6 +20,9 @@ class AgentState:
     query: Optional[str] = None
     limit: int = 10
     watch_history: list[str] = field(default_factory=list)
+    # Aligned 1:1 with watch_history: the title, or the bare ID when unknown.
+    # Only populated on the query (LLM) path, which is the only reader.
+    watch_history_titles: list[str] = field(default_factory=list)
     candidates: list[VideoCandidate] = field(default_factory=list)
     ranked_results: list[dict] = field(default_factory=list)
     error: Optional[str] = None

@@ -10,11 +10,15 @@ from src.observability import get_tracer
 logger = logging.getLogger(__name__)
 _tracer = get_tracer(__name__)
 
+# Bump whenever RANKING_PROMPT changes, so eval scores and impressions can be
+# attributed to a specific prompt.
+PROMPT_VERSION = "2"
+
 RANKING_PROMPT = """\
 You are a video recommendation engine. Given a user's watch history \
 and candidate videos, score each candidate from 0.0 to 1.0 based on relevance.
 
-User's recent watch history (video IDs): {watch_history}
+User's recent watch history (titles): {watch_history}
 User's search query: {query}
 
 Candidate videos:
@@ -54,8 +58,9 @@ async def _rank_inner(state: AgentState) -> AgentState:
         for c in state.candidates
     ])
 
+    history = state.watch_history_titles or state.watch_history
     prompt = RANKING_PROMPT.format(
-        watch_history=", ".join(state.watch_history[-20:]) if state.watch_history else "none",
+        watch_history=", ".join(history[-20:]) if history else "none",
         query=state.query or "none",
         candidates=candidates_text,
     )

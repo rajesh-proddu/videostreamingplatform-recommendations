@@ -11,6 +11,7 @@ from src.tools.semantic_search import semantic_search
 from src.tools.similar import get_similar_videos
 from src.tools.trending import get_trending_videos
 from src.tools.user_history import get_user_history
+from src.tools.video_titles import get_video_titles
 
 logger = logging.getLogger(__name__)
 _tracer = get_tracer(__name__)
@@ -22,6 +23,12 @@ async def _fetch_history(user_id: str) -> list[str]:
     except Exception:
         logger.warning(f"Failed to get watch history for user {user_id}")
         return []
+
+
+async def _fetch_history_with_titles(user_id: str) -> tuple[list[str], list[str]]:
+    history = await _fetch_history(user_id)
+    titles = await get_video_titles(history)
+    return history, [titles.get(vid, vid) for vid in history]
 
 
 async def _fetch_search(query: str) -> list[VideoCandidate]:
@@ -100,7 +107,8 @@ async def retrieve_candidates(state: AgentState) -> AgentState:
 
 async def _retrieve_inner(state: AgentState, span) -> AgentState:
     # Independent I/O — fan out concurrently instead of awaiting one at a time.
-    history_task = _fetch_history(state.user_id)
+    # Titles are only needed by the LLM ranker, which runs only when there's a query.
+    history_task = _fetch_history_with_titles(state.user_id) if state.query else _fetch_history(state.user_id)
     search_task = _fetch_search(state.query) if state.query else None
     semantic_task = _fetch_semantic(state.query) if state.query else None
     similar_task = _fetch_similar(state.user_id)
@@ -111,7 +119,11 @@ async def _retrieve_inner(state: AgentState, span) -> AgentState:
         tasks.extend([search_task, semantic_task])
 
     gathered = await asyncio.gather(*tasks)
-    state.watch_history, similar, trending = gathered[:3]
+    history, similar, trending = gathered[:3]
+    if state.query:
+        state.watch_history, state.watch_history_titles = history
+    else:
+        state.watch_history = history
     search_results, semantic = gathered[3:] if search_task is not None else ([], [])
 
     # Same source priority as before, so dedup below keeps the first match.

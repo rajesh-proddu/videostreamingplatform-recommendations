@@ -9,15 +9,17 @@ from src.agent.state import AgentState
 
 
 @pytest.mark.asyncio
+@patch("src.agent.nodes.retrieve.get_video_titles", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.semantic_search", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_similar_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
 @patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
 async def test_retrieve_with_query(
-    mock_history, mock_search, mock_trending, mock_similar, mock_semantic,
+    mock_history, mock_search, mock_trending, mock_similar, mock_semantic, mock_titles,
 ):
     mock_history.return_value = ["vid-old"]
+    mock_titles.return_value = {"vid-old": "Old Favourite"}
     mock_search.return_value = [
         {"id": "vid-1", "title": "Python Tutorial", "description": "Basics"},
         {"id": "vid-2", "title": "Go Tutorial", "description": "Intro"},
@@ -34,6 +36,7 @@ async def test_retrieve_with_query(
     result = await retrieve_candidates(state)
 
     assert result.watch_history == ["vid-old"]
+    assert result.watch_history_titles == ["Old Favourite"]
     # 2 search + 1 semantic + 1 trending = 4
     assert len(result.candidates) == 4
     sources = {c.video_id: c.source for c in result.candidates}
@@ -171,3 +174,45 @@ async def test_retrieve_handles_trending_failure(mock_history, mock_search, mock
     result = await retrieve_candidates(state)
 
     assert result.candidates == []
+
+
+@pytest.mark.asyncio
+@patch("src.agent.nodes.retrieve.get_video_titles", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.semantic_search", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_similar_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.search_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
+async def test_retrieve_titles_fall_back_to_id(
+    mock_history, mock_search, mock_trending, mock_similar, mock_semantic, mock_titles,
+):
+    mock_history.return_value = ["vid-a", "vid-b"]
+    mock_titles.return_value = {"vid-b": "Known"}
+    mock_search.return_value = []
+    mock_semantic.return_value = []
+    mock_similar.return_value = []
+    mock_trending.return_value = []
+
+    result = await retrieve_candidates(AgentState(user_id="user-1", query="q"))
+
+    assert result.watch_history == ["vid-a", "vid-b"]
+    assert result.watch_history_titles == ["vid-a", "Known"]
+
+
+@pytest.mark.asyncio
+@patch("src.agent.nodes.retrieve.get_video_titles", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_similar_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_trending_videos", new_callable=AsyncMock)
+@patch("src.agent.nodes.retrieve.get_user_history", new_callable=AsyncMock)
+async def test_retrieve_without_query_skips_titles(
+    mock_history, mock_trending, mock_similar, mock_titles,
+):
+    mock_history.return_value = ["vid-a"]
+    mock_similar.return_value = []
+    mock_trending.return_value = []
+
+    result = await retrieve_candidates(AgentState(user_id="user-1"))
+
+    assert result.watch_history == ["vid-a"]
+    assert result.watch_history_titles == []
+    mock_titles.assert_not_called()

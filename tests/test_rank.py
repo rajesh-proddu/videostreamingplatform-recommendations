@@ -30,6 +30,23 @@ class TestRankCandidates:
         assert result.ranked_results == []
 
     @patch("src.agent.nodes.rank.get_llm_provider")
+    async def test_prompt_uses_history_titles(self, mock_get_provider):
+        mock_llm = AsyncMock()
+        mock_get_provider.return_value = mock_llm
+        mock_llm.generate.return_value = "[]"
+
+        state = _make_state(
+            candidates=_make_candidates(),
+            watch_history=["vid-x"],
+            watch_history_titles=["Intro to Rust"],
+        )
+        await rank_candidates(state)
+
+        prompt = mock_llm.generate.call_args[0][0]
+        assert "Intro to Rust" in prompt
+        assert "vid-x" not in prompt
+
+    @patch("src.agent.nodes.rank.get_llm_provider")
     async def test_rank_success(self, mock_get_provider):
         mock_llm = AsyncMock()
         mock_get_provider.return_value = mock_llm
