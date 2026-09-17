@@ -3,6 +3,7 @@
 import json
 import logging
 
+from src.agent.metrics import record_rank_fallback
 from src.agent.state import AgentState
 from src.llm.provider import get_llm_provider
 from src.observability import get_tracer
@@ -76,6 +77,7 @@ async def _rank_inner(state: AgentState) -> AgentState:
         state.ranked_results = sorted(rankings, key=lambda x: x.get("score", 0), reverse=True)
     except json.JSONDecodeError:
         logger.error("LLM returned invalid JSON, falling back to source-based ranking")
+        record_rank_fallback("invalid_json")
         state.ranked_results = [
             {
                 "video_id": c.video_id,
@@ -87,6 +89,7 @@ async def _rank_inner(state: AgentState) -> AgentState:
         ]
     except Exception:
         logger.exception("Failed to rank candidates with LLM")
+        record_rank_fallback("llm_error")
         state.ranked_results = [
             {
                 "video_id": c.video_id,

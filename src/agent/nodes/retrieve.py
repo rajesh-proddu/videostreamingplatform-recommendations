@@ -3,6 +3,7 @@
 import asyncio
 import logging
 
+from src.agent.metrics import record_source_candidates
 from src.agent.state import AgentState, VideoCandidate
 from src.config import config
 from src.observability import get_tracer
@@ -125,6 +126,12 @@ async def _retrieve_inner(state: AgentState, span) -> AgentState:
     else:
         state.watch_history = history
     search_results, semantic = gathered[3:] if search_task is not None else ([], [])
+
+    yields = {"similar": similar, "trending": trending}
+    if search_task is not None:
+        yields.update(search=search_results, semantic=semantic)
+    for source, found in yields.items():
+        record_source_candidates(source, len(found))
 
     # Same source priority as before, so dedup below keeps the first match.
     candidates = [*search_results, *semantic, *similar, *trending]

@@ -5,6 +5,7 @@ from typing import Optional
 
 from langgraph.graph import END, StateGraph
 
+from src.agent.metrics import record_route
 from src.agent.nodes.filter import filter_results
 from src.agent.nodes.popular_fallback import popular_fallback
 from src.agent.nodes.rank import rank_candidates
@@ -20,10 +21,13 @@ _tracer = get_tracer(__name__)
 def _route_after_retrieve(state: AgentState) -> str:
     """Pick the ranking path based on retrieve output."""
     if not state.candidates:
-        return "popular_fallback"
-    if not state.query:
-        return "rank_deterministic"
-    return "rank"
+        route = "popular_fallback"
+    elif not state.query:
+        route = "rank_deterministic"
+    else:
+        route = "rank"
+    record_route(route)
+    return route
 
 
 def build_graph() -> StateGraph:
