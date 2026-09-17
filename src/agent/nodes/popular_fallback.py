@@ -19,6 +19,7 @@ async def popular_fallback(state: AgentState) -> AgentState:
 
 
 async def _popular_fallback_inner(state: AgentState) -> AgentState:
+    state.route = "popular_fallback"
     try:
         trending = await get_trending_videos(hours=FALLBACK_WINDOW_HOURS, limit=state.limit)
     except Exception:

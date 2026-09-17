@@ -25,4 +25,8 @@ class AgentState:
     watch_history_titles: list[str] = field(default_factory=list)
     candidates: list[VideoCandidate] = field(default_factory=list)
     ranked_results: list[dict] = field(default_factory=list)
+    # Set by whichever ranking node ran; recorded in the impression log.
+    route: Optional[str] = None
+    prompt_version: Optional[str] = None
+    rank_fallback: Optional[str] = None  # "invalid_json" | "llm_error"
     error: Optional[str] = None

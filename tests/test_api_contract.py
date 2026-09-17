@@ -82,3 +82,12 @@ def test_response_shape_preserves_user_and_query():
         assert body["user_id"] == "u-shape"
         assert body["query"] == "q-shape"
         assert body["recommendations"][0]["video_id"] == "v1"
+
+
+def test_response_carries_request_id_passed_to_graph():
+    with patch("src.api.routes.recommend.get_recommendations") as mock:
+        mock.return_value = []
+        first = client.post("/api/v1/recommend", json={"user_id": "u"}).json()
+        second = client.post("/api/v1/recommend", json={"user_id": "u"}).json()
+        assert first["request_id"] != second["request_id"]
+        assert mock.call_args.kwargs["request_id"] == second["request_id"]

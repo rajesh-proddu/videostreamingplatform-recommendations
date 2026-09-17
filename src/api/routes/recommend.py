@@ -1,6 +1,7 @@
 """Recommendation API routes."""
 
 import logging
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
@@ -26,6 +27,7 @@ class VideoRecommendation(BaseModel):
 
 
 class RecommendationResponse(BaseModel):
+    request_id: str = Field(..., description="Impression ID; echo it back on interactions with these results")
     user_id: str
     recommendations: list[VideoRecommendation]
     query: Optional[str] = None
@@ -34,13 +36,16 @@ class RecommendationResponse(BaseModel):
 @router.post("/recommend", response_model=RecommendationResponse)
 async def recommend(request: RecommendationRequest):
     """Get personalized video recommendations for a user."""
+    request_id = str(uuid.uuid4())
     try:
         recommendations = await get_recommendations(
             user_id=request.user_id,
             query=request.query,
             limit=request.limit,
+            request_id=request_id,
         )
         return RecommendationResponse(
+            request_id=request_id,
             user_id=request.user_id,
             recommendations=recommendations,
             query=request.query,

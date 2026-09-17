@@ -50,6 +50,8 @@ async def rank_candidates(state: AgentState) -> AgentState:
 
 
 async def _rank_inner(state: AgentState) -> AgentState:
+    state.route = "rank"
+    state.prompt_version = PROMPT_VERSION
     if not state.candidates:
         logger.info("No candidates to rank")
         return state
@@ -78,6 +80,7 @@ async def _rank_inner(state: AgentState) -> AgentState:
     except json.JSONDecodeError:
         logger.error("LLM returned invalid JSON, falling back to source-based ranking")
         record_rank_fallback("invalid_json")
+        state.rank_fallback = "invalid_json"
         state.ranked_results = [
             {
                 "video_id": c.video_id,
@@ -90,6 +93,7 @@ async def _rank_inner(state: AgentState) -> AgentState:
     except Exception:
         logger.exception("Failed to rank candidates with LLM")
         record_rank_fallback("llm_error")
+        state.rank_fallback = "llm_error"
         state.ranked_results = [
             {
                 "video_id": c.video_id,

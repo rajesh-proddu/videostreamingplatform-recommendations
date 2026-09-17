@@ -24,6 +24,7 @@ async def rank_deterministic(state: AgentState) -> AgentState:
 
 
 async def _rank_deterministic_inner(state: AgentState) -> AgentState:
+    state.route = "rank_deterministic"
     state.ranked_results = sorted(
         (
             {

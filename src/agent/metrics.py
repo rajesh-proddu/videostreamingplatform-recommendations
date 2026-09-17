@@ -27,6 +27,10 @@ def _instruments() -> SimpleNamespace:
             "recommendation_source_candidates_total",
             description="Candidates returned per retrieval source, before dedup",
         ),
+        impression_write_failures=meter.create_counter(
+            "recommendation_impression_write_failures_total",
+            description="Impression rows that failed to write (the response was still served)",
+        ),
     )
 
 
@@ -40,3 +44,7 @@ def record_rank_fallback(reason: str) -> None:
 
 def record_source_candidates(source: str, count: int) -> None:
     _instruments().source_candidates.add(count, {"source": source})
+
+
+def record_impression_write_failure() -> None:
+    _instruments().impression_write_failures.add(1)

@@ -1,10 +1,12 @@
 """LangGraph state graph for video recommendations."""
 
 import logging
+import time
 from typing import Optional
 
 from langgraph.graph import END, StateGraph
 
+from src.agent.impressions import record_impression
 from src.agent.metrics import record_route
 from src.agent.nodes.filter import filter_results
 from src.agent.nodes.popular_fallback import popular_fallback
@@ -66,8 +68,13 @@ async def get_recommendations(
     user_id: str,
     query: Optional[str] = None,
     limit: int = 10,
+    request_id: Optional[str] = None,
 ) -> list[dict]:
-    """Run the recommendation graph and return results."""
+    """Run the recommendation graph and return results.
+
+    When request_id is given, the served results are recorded in the
+    impression log in the background.
+    """
     initial_state = AgentState(
         user_id=user_id,
         query=query,
@@ -78,8 +85,12 @@ async def get_recommendations(
         span.set_attribute("user_id", user_id)
         span.set_attribute("has_query", query is not None)
         span.set_attribute("limit", limit)
+        start = time.monotonic()
         # LangGraph's ainvoke returns the final state as a dict, not the dataclass.
         result = await recommendation_graph.ainvoke(initial_state)
         results = result["ranked_results"][:limit]
         span.set_attribute("result_count", len(results))
+        if request_id is not None:
+            latency_ms = int((time.monotonic() - start) * 1000)
+            record_impression(request_id, result, results, latency_ms)
         return results
