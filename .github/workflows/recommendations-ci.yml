@@ -36,6 +36,11 @@ jobs:
       - name: Test
         run: pytest -v
 
+      # Deterministic (no-LLM) ranking eval against the committed baseline.
+      # The LLM subset needs a model and runs out of band: `make eval`.
+      - name: Ranking eval gate
+        run: python -m evals.run --offline --check evals/baseline.json
+
   build-and-push:
     if: github.event_name == 'push'
     needs: lint-and-test

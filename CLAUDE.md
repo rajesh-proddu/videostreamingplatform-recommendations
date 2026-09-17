@@ -19,6 +19,10 @@ pytest -v tests/test_rank.py::TestRankCandidates::test_rank_success  # single te
 # Lint (ruff, line-length=120, rules E/F/I/W)
 make lint
 
+# Ranking eval (see "Evals" below)
+make eval-offline # no-LLM cases, gated on evals/baseline.json (CI runs this)
+make eval         # all cases against the configured LLM_PROVIDER
+
 # Embedding batch job (requires LLM + ES + pgvector running)
 make embed        # python -m src.embeddings.embed_videos
 
@@ -69,6 +73,14 @@ The compiled graph is a **module-level singleton** (`recommendation_graph = buil
 `src/agent/impressions.py` writes one `recommendation_impressions` row per served response (request_id, route, prompt_version, model_id, rank_fallback, latency, items with rank/score/source) as a tracked background task — never on the request path; failures are logged and counted. The API lifespan creates the table (`ensure_schema`) and drains pending writes on shutdown.
 
 `src/agent/metrics.py` defines the request-path counters (`recommendation_route_total`, `recommendation_rank_fallback_total`, `recommendation_source_candidates_total`, `recommendation_impression_write_failures_total`). Instruments are created lazily because `src.api.main` imports the graph before `init_observability()` runs.
+
+### Evals (`evals/`)
+
+`python -m evals.run` scores ranking quality (NDCG@10, precision@10, recall@10) over the golden set in `evals/cases/*.json`. Each case pins retrieval to a fixed candidate pool (the tools are patched), so the score measures only ranking and filtering, the part that prompt and model changes affect. Relevance labels are graded 0–3; unlisted videos count as 0.
+
+- **Gate**: `--offline` runs only the no-query cases (`rank_deterministic`, `popular_fallback`) and `--check evals/baseline.json` fails on a mean regression **or** on any single case losing more than 0.05 NDCG. After an intentional change, rerun with `--write-baseline evals/baseline.json` and commit the new baseline.
+- **LLM cases** (those with a `query`) need a model and don't run in CI. A run fails if any case falls back from LLM ranking, because those scores don't measure the prompt. Baselines are keyed `full:<provider>:<model>`.
+- **The seed set is synthetic** (`"synthetic": true`): 10 placeholder cases over an invented catalog that exercise every route. Replace or extend them with hand-labelled cases drawn from `recommendation_impressions` (real queries and served candidates) before treating scores as a quality signal.
 
 ### LLM Provider (`src/llm/`)
 

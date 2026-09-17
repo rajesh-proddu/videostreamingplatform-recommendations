@@ -1,0 +1,370 @@
+[
+  {
+    "id": "feed-similar-ranked-above-unrelated-trending",
+    "note": "Rust watcher; taste matches should outrank an unrelated trending clip.",
+    "watch_history": [
+      {
+        "video_id": "rs-intro",
+        "title": "Rust in 100 Seconds",
+        "description": ""
+      }
+    ],
+    "retrieval": {
+      "similar": [
+        {
+          "video_id": "rs-ownership",
+          "title": "Rust Ownership Explained",
+          "description": "Borrowing and lifetimes"
+        },
+        {
+          "video_id": "rs-async",
+          "title": "Async Rust with Tokio",
+          "description": "Futures and runtimes"
+        }
+      ],
+      "trending": [
+        {
+          "video_id": "celeb-gossip",
+          "title": "Celebrity Gossip Roundup",
+          "description": "This week in celebrity news"
+        },
+        {
+          "video_id": "rs-release",
+          "title": "What's New in Rust 1.90",
+          "description": "Release notes walkthrough"
+        }
+      ]
+    },
+    "relevance": {
+      "rs-ownership": 3,
+      "rs-async": 2,
+      "rs-release": 1
+    },
+    "synthetic": true
+  },
+  {
+    "id": "feed-drops-already-watched",
+    "note": "A watched video returned by similar must be filtered on the feed path.",
+    "watch_history": [
+      {
+        "video_id": "gtr-chords",
+        "title": "First 5 Guitar Chords",
+        "description": ""
+      },
+      {
+        "video_id": "gtr-strum",
+        "title": "Strumming Patterns 101",
+        "description": ""
+      }
+    ],
+    "retrieval": {
+      "similar": [
+        {
+          "video_id": "gtr-strum",
+          "title": "Strumming Patterns 101",
+          "description": ""
+        },
+        {
+          "video_id": "gtr-barre",
+          "title": "Barre Chords Without Pain",
+          "description": "Technique for beginners"
+        },
+        {
+          "video_id": "gtr-fingerstyle",
+          "title": "Fingerstyle for Beginners",
+          "description": "Travis picking"
+        }
+      ],
+      "trending": []
+    },
+    "relevance": {
+      "gtr-barre": 3,
+      "gtr-fingerstyle": 2,
+      "gtr-strum": 0
+    },
+    "synthetic": true
+  },
+  {
+    "id": "feed-strong-trending-below-weak-similar",
+    "note": "Known weakness: source weights put a weak similar match above a strong trending one.",
+    "watch_history": [
+      {
+        "video_id": "bake-bread",
+        "title": "No-Knead Bread",
+        "description": ""
+      }
+    ],
+    "retrieval": {
+      "similar": [
+        {
+          "video_id": "kitchen-tour",
+          "title": "My Kitchen Tour",
+          "description": "Vlog"
+        }
+      ],
+      "trending": [
+        {
+          "video_id": "bake-sourdough",
+          "title": "Sourdough From Scratch",
+          "description": "Starter to loaf in 3 days"
+        }
+      ]
+    },
+    "relevance": {
+      "bake-sourdough": 3,
+      "kitchen-tour": 1
+    },
+    "synthetic": true
+  },
+  {
+    "id": "feed-trending-only-new-user",
+    "note": "New user with no taste vector: trending is all there is.",
+    "watch_history": [],
+    "retrieval": {
+      "similar": [],
+      "trending": [
+        {
+          "video_id": "tr-news",
+          "title": "Morning News Brief",
+          "description": ""
+        },
+        {
+          "video_id": "tr-music",
+          "title": "Top 10 Songs This Week",
+          "description": ""
+        },
+        {
+          "video_id": "tr-cooking",
+          "title": "15-Minute Pasta",
+          "description": ""
+        }
+      ]
+    },
+    "relevance": {
+      "tr-news": 1,
+      "tr-music": 1,
+      "tr-cooking": 1
+    },
+    "synthetic": true
+  },
+  {
+    "id": "feed-respects-limit",
+    "note": "Only the top `limit` results count; the best item is last in retrieval order.",
+    "limit": 2,
+    "watch_history": [
+      {
+        "video_id": "py-basics",
+        "title": "Python Basics",
+        "description": ""
+      }
+    ],
+    "retrieval": {
+      "similar": [
+        {
+          "video_id": "py-lists",
+          "title": "Python Lists",
+          "description": "Slicing"
+        },
+        {
+          "video_id": "py-dicts",
+          "title": "Python Dicts",
+          "description": "Hashing"
+        }
+      ],
+      "trending": [
+        {
+          "video_id": "py-async",
+          "title": "Python asyncio Deep Dive",
+          "description": "Event loops"
+        }
+      ]
+    },
+    "relevance": {
+      "py-lists": 1,
+      "py-dicts": 1,
+      "py-async": 3
+    },
+    "synthetic": true
+  },
+  {
+    "id": "cold-start-popular-fallback",
+    "note": "Nothing retrieved: weekly popular list is served.",
+    "watch_history": [],
+    "retrieval": {
+      "popular": [
+        {
+          "video_id": "pop-1",
+          "title": "Most Watched This Week",
+          "description": ""
+        },
+        {
+          "video_id": "pop-2",
+          "title": "Viral Cat Compilation",
+          "description": ""
+        }
+      ]
+    },
+    "relevance": {
+      "pop-1": 2,
+      "pop-2": 1
+    },
+    "synthetic": true
+  },
+  {
+    "id": "query-sourdough-prefers-on-topic",
+    "query": "sourdough",
+    "note": "On-topic search and semantic hits should beat taste and trending noise.",
+    "watch_history": [
+      {
+        "video_id": "rs-intro",
+        "title": "Rust in 100 Seconds",
+        "description": ""
+      }
+    ],
+    "retrieval": {
+      "search": [
+        {
+          "video_id": "sd-basics",
+          "title": "Sourdough Basics",
+          "description": "Flour, water, salt, time"
+        },
+        {
+          "video_id": "bread-machine",
+          "title": "Bread Machine Loaf",
+          "description": "Set and forget white bread"
+        }
+      ],
+      "semantic": [
+        {
+          "video_id": "sd-starter",
+          "title": "Keeping a Sourdough Starter Alive",
+          "description": "Feeding schedule"
+        }
+      ],
+      "similar": [
+        {
+          "video_id": "rs-async",
+          "title": "Async Rust with Tokio",
+          "description": "Futures and runtimes"
+        }
+      ],
+      "trending": [
+        {
+          "video_id": "celeb-gossip",
+          "title": "Celebrity Gossip Roundup",
+          "description": "This week in celebrity news"
+        }
+      ]
+    },
+    "relevance": {
+      "sd-basics": 3,
+      "sd-starter": 3,
+      "bread-machine": 1
+    },
+    "synthetic": true
+  },
+  {
+    "id": "query-guitar-personalized-by-history",
+    "query": "beginner guitar",
+    "note": "Fingerstyle history should lift the fingerstyle beginner lesson.",
+    "watch_history": [
+      {
+        "video_id": "fs-travis",
+        "title": "Travis Picking Pattern",
+        "description": ""
+      },
+      {
+        "video_id": "fs-tabs",
+        "title": "Reading Fingerstyle Tabs",
+        "description": ""
+      }
+    ],
+    "retrieval": {
+      "search": [
+        {
+          "video_id": "gtr-strum-basic",
+          "title": "Beginner Strumming Basics",
+          "description": "Downstrokes and upstrokes"
+        },
+        {
+          "video_id": "gtr-fs-begin",
+          "title": "Beginner Fingerstyle Guitar",
+          "description": "Your first fingerpicking song"
+        },
+        {
+          "video_id": "gtr-repair",
+          "title": "Guitar Repair: Fret Leveling",
+          "description": "Luthier techniques"
+        }
+      ]
+    },
+    "relevance": {
+      "gtr-fs-begin": 3,
+      "gtr-strum-basic": 2
+    },
+    "synthetic": true
+  },
+  {
+    "id": "query-semantic-only-travel",
+    "query": "train travel in japan",
+    "note": "No keyword hits; semantic results carry the query.",
+    "watch_history": [],
+    "retrieval": {
+      "semantic": [
+        {
+          "video_id": "jp-railpass",
+          "title": "Is the JR Pass Worth It?",
+          "description": "Shinkansen routes and costs"
+        },
+        {
+          "video_id": "jp-kyoto",
+          "title": "A Day Walking Kyoto",
+          "description": "Temples and markets"
+        }
+      ],
+      "trending": [
+        {
+          "video_id": "tr-music",
+          "title": "Top 10 Songs This Week",
+          "description": ""
+        }
+      ]
+    },
+    "relevance": {
+      "jp-railpass": 3,
+      "jp-kyoto": 1
+    },
+    "synthetic": true
+  },
+  {
+    "id": "query-keeps-watched-when-searched",
+    "query": "sourdough basics",
+    "note": "Explicit search keeps a watched video (filter bypass on the query path).",
+    "watch_history": [
+      {
+        "video_id": "sd-basics",
+        "title": "Sourdough Basics",
+        "description": ""
+      }
+    ],
+    "retrieval": {
+      "search": [
+        {
+          "video_id": "sd-basics",
+          "title": "Sourdough Basics",
+          "description": "Flour, water, salt, time"
+        },
+        {
+          "video_id": "sd-shaping",
+          "title": "Shaping a Sourdough Boule",
+          "description": "Tension and folds"
+        }
+      ]
+    },
+    "relevance": {
+      "sd-basics": 3,
+      "sd-shaping": 2
+    },
+    "synthetic": true
+  }
+]

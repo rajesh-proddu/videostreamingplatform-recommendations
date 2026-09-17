@@ -61,7 +61,7 @@ async def ensure_schema() -> None:
         logger.exception("Failed to create recommendation_impressions; impression writes will fail")
 
 
-def _model_id() -> Optional[str]:
+def current_model_id() -> Optional[str]:
     return {
         "ollama": config.ollama_model,
         "bedrock": config.bedrock_model_id,
@@ -88,7 +88,7 @@ def _build_row(request_id: str, final_state: dict, served: list[dict], latency_m
         final_state.get("query"),
         route,
         final_state.get("prompt_version"),
-        _model_id() if route == "rank" else None,
+        current_model_id() if route == "rank" else None,
         final_state.get("rank_fallback"),
         latency_ms,
         json.dumps(items),

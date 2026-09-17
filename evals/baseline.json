@@ -1,0 +1,16 @@
+{
+  "offline": {
+    "cases": 6,
+    "ndcg@10": 0.8172,
+    "per_case_ndcg": {
+      "cold-start-popular-fallback": 1.0,
+      "feed-drops-already-watched": 1.0,
+      "feed-respects-limit": 0.2006,
+      "feed-similar-ranked-above-unrelated-trending": 0.9926,
+      "feed-strong-trending-below-weak-similar": 0.7098,
+      "feed-trending-only-new-user": 1.0
+    },
+    "precision@10": 0.2333,
+    "recall@10": 0.9444
+  }
+}

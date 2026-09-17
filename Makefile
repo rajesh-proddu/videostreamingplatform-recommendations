@@ -1,4 +1,4 @@
-.PHONY: dev run lint test build help
+.PHONY: dev run lint test eval eval-offline build help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -14,6 +14,12 @@ lint: ## Run ruff linter
 
 test: ## Run tests
 	pytest -v
+
+eval-offline: ## Ranking eval, no-LLM cases, gated on evals/baseline.json (what CI runs)
+	python -m evals.run --offline --check evals/baseline.json
+
+eval: ## Ranking eval, all cases, using LLM_PROVIDER (fails if any case falls back)
+	python -m evals.run
 
 build: ## Build Docker image
 	docker build -t videostreamingplatform-recommendations:latest .
